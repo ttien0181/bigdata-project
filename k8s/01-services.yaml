@@ -1,0 +1,177 @@
+# Kubernetes Services
+
+---
+# Zookeeper Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: zookeeper
+  namespace: air-quality
+  labels:
+    app: zookeeper
+spec:
+  ports:
+    - port: 2181
+      targetPort: 2181
+      name: client
+  clusterIP: None
+  selector:
+    app: zookeeper
+
+---
+# Kafka Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka
+  namespace: air-quality
+  labels:
+    app: kafka
+spec:
+  type: ClusterIP
+  ports:
+    - port: 29092
+      targetPort: 29092
+      name: internal
+    - port: 9092
+      targetPort: 9092
+      name: external
+  selector:
+    app: kafka
+
+---
+# Kafka Headless Service (cho StatefulSet)
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-headless
+  namespace: air-quality
+  labels:
+    app: kafka
+spec:
+  clusterIP: None
+  ports:
+    - port: 29092
+      targetPort: 29092
+      name: internal
+  selector:
+    app: kafka
+
+---
+# NameNode Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: namenode
+  namespace: air-quality
+  labels:
+    app: namenode
+spec:
+  type: NodePort
+  ports:
+    - port: 9000
+      targetPort: 9000
+      name: hdfs
+    - port: 9870
+      targetPort: 9870
+      nodePort: 30870
+      name: web-ui
+  selector:
+    app: namenode
+
+---
+# DataNode Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: datanode
+  namespace: air-quality
+  labels:
+    app: datanode
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - port: 9864
+      targetPort: 9864
+      name: datanode
+  selector:
+    app: datanode
+
+---
+# Spark Master Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: spark-master
+  namespace: air-quality
+  labels:
+    app: spark-master
+spec:
+  type: NodePort
+  ports:
+    - port: 7077
+      targetPort: 7077
+      name: master
+    - port: 8080
+      targetPort: 8080
+      nodePort: 30080
+      name: web-ui
+  selector:
+    app: spark-master
+
+---
+# Spark Worker Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: spark-worker
+  namespace: air-quality
+  labels:
+    app: spark-worker
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - port: 8081
+      targetPort: 8081
+      name: web-ui
+  selector:
+    app: spark-worker
+
+---
+# PostgreSQL Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: air-quality
+  labels:
+    app: postgres
+spec:
+  type: ClusterIP
+  ports:
+    - port: 5432
+      targetPort: 5432
+      name: postgres
+  selector:
+    app: postgres
+
+---
+# Grafana Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: air-quality
+  labels:
+    app: grafana
+spec:
+  type: NodePort
+  ports:
+    - port: 3000
+      targetPort: 3000
+      nodePort: 30300
+      name: grafana
+  selector:
+    app: grafana

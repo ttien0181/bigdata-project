@@ -1,0 +1,16 @@
+FROM confluentinc/cp-kafka:7.4.0
+
+USER root
+
+# Create startup script  
+RUN mkdir -p /scripts && cat > /scripts/start-kafka.sh << 'EOF'
+#!/bin/bash
+/opt/confluent/bin/kafka-server-start /etc/kafka/server.properties
+EOF
+
+RUN chmod +x /scripts/start-kafka.sh
+
+# Copy  config template
+RUN mkdir -p /etc/kafka
+
+ENTRYPOINT ["/scripts/start-kafka.sh"]

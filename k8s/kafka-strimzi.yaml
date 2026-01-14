@@ -1,0 +1,89 @@
+---
+# Strimzi Kafka Node Pool
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaNodePool
+metadata:
+  name: air-quality-pool
+  namespace: air-quality
+  labels:
+    strimzi.io/cluster: air-quality-kafka
+spec:
+  replicas: 1
+  roles:
+    - broker
+    - controller
+  storage:
+    type: persistent-claim
+    size: 10Gi
+    deleteClaim: false
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+
+---
+# Strimzi Kafka Cluster
+apiVersion: kafka.strimzi.io/v1beta2
+kind: Kafka
+metadata:
+  name: air-quality-kafka
+  namespace: air-quality
+  annotations:
+    strimzi.io/use-kraft: "true"
+spec:
+  kafka:
+    version: 4.0.1
+    config:
+      offsets.topic.replication.factor: 1
+      transaction.state.log.replication.factor: 1
+      transaction.state.log.min.isr: 1
+      default.replication.factor: 1
+      min.insync.replicas: 1
+      auto.create.topics.enable: true
+      log.retention.hours: 168
+    listeners:
+    - name: plain
+      port: 29092
+      type: internal
+      tls: false
+  entityOperator:
+    topicOperator: {}
+    userOperator: {}
+
+---
+# Kafka Service (expose cho producer/spark)
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka
+  namespace: air-quality
+  labels:
+    app: kafka
+spec:
+  ports:
+  - port: 29092
+    targetPort: 29092
+    name: plain
+    protocol: TCP
+  selector:
+    strimzi.io/name: air-quality-kafka-kafka
+  type: ClusterIP
+
+---
+# Topic: air-quality
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: air-quality
+  namespace: air-quality
+  labels:
+    strimzi.io/cluster: air-quality-kafka
+spec:
+  partitions: 1
+  replicas: 1
+  config:
+    retention.ms: 604800000
+    segment.ms: 86400000

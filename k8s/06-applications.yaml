@@ -1,0 +1,168 @@
+# Producer & Spark Processor Deployments
+
+---
+# Producer Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: producer
+  namespace: air-quality
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: producer
+  template:
+    metadata:
+      labels:
+        app: producer
+    spec:
+      containers:
+      - name: producer
+        image: air-producer:latest
+        imagePullPolicy: Never  # Sử dụng image từ local Minikube
+        env:
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka:29092"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+      restartPolicy: Always
+      initContainers:
+      - name: wait-for-kafka
+        image: busybox:1.35
+        command:
+        - sh
+        - -c
+        - |
+          until nc -z kafka 29092; do
+            echo "Waiting for Kafka..."
+            sleep 2
+          done
+
+---
+# Spark Processor Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spark-processor
+  namespace: air-quality
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spark-processor
+  template:
+    metadata:
+      labels:
+        app: spark-processor
+    spec:
+      subdomain: spark-processor
+      hostname: spark-processor-driver
+      containers:
+      - name: spark-processor
+        image: spark-processor:v5
+        imagePullPolicy: Never
+        env:
+        - name: SPARK_MASTER_URL
+          value: "spark://spark-master:7077"
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka:29092"
+        - name: NAMENODE_URL
+          value: "hdfs://namenode:9000"
+        - name: POSTGRES_HOST
+          value: "postgres"
+        - name: POSTGRES_PORT
+          value: "5432"
+        - name: SPARK_LOCAL_HOSTNAME
+          value: "spark-processor-driver.spark-processor.air-quality.svc.cluster.local"
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+      restartPolicy: Always
+      initContainers:
+      - name: wait-for-dependencies
+        image: busybox:1.35
+        command:
+        - sh
+        - -c
+        - |
+          echo "Waiting for Kafka..."
+          until nc -z kafka 29092; do sleep 2; done
+          
+          echo "Waiting for Spark Master..."
+          until nc -z spark-master 7077; do sleep 2; done
+          
+          echo "Waiting for NameNode..."
+          until nc -z namenode 9000; do sleep 2; done
+          
+          echo "All dependencies ready!"
+
+---
+# Headless Service for Spark Driver
+apiVersion: v1
+kind: Service
+metadata:
+  name: spark-processor
+  namespace: air-quality
+spec:
+  clusterIP: None
+  selector:
+    app: spark-processor
+  ports:
+  - name: driver-rpc
+    port: 7078
+    targetPort: 7078
+  - name: blockmanager
+    port: 7079
+    targetPort: 7079
+
+---
+# Alternative: Spark Processor as Deployment (nếu muốn chạy liên tục)
+# Uncomment để sử dụng thay cho Job
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: spark-processor-stream
+#   namespace: air-quality
+# spec:
+#   replicas: 1
+#   selector:
+#     matchLabels:
+#       app: spark-processor
+#   template:
+#     metadata:
+#       labels:
+#         app: spark-processor
+#     spec:
+#       containers:
+#       - name: spark-processor
+#         image: spark-processor:latest
+#         imagePullPolicy: Never
+#         env:
+#         - name: SPARK_MASTER_URL
+#           value: "spark://spark-master:7077"
+#         - name: KAFKA_BOOTSTRAP_SERVERS
+#           value: "kafka:29092"
+#         - name: NAMENODE_URL
+#           value: "hdfs://namenode:9000"
+#         - name: POSTGRES_HOST
+#           value: "postgres"
+#         - name: POSTGRES_PORT
+#           value: "5432"
+#         resources:
+#           requests:
+#             memory: "2Gi"
+#             cpu: "1000m"
+#           limits:
+#             memory: "4Gi"
+#             cpu: "2000m"
+#       restartPolicy: Always

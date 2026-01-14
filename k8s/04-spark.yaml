@@ -1,0 +1,120 @@
+# Spark Master & Worker Deployments
+
+---
+# Spark Master Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spark-master
+  namespace: air-quality
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spark-master
+  template:
+    metadata:
+      labels:
+        app: spark-master
+    spec:
+      securityContext:
+        runAsUser: 0
+        fsGroup: 0
+      containers:
+      - name: spark-master
+        image: apache/spark:3.3.1
+        command: ["/bin/bash", "-c"]
+        args:
+          - |
+            unset SPARK_MASTER_PORT
+            export SPARK_USER=spark
+            /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master \
+              --host 0.0.0.0 \
+              --port 7077 \
+              --webui-port 8080
+        ports:
+        - containerPort: 7077
+          name: master
+        - containerPort: 8080
+          name: web-ui
+        env:
+        - name: SPARK_USER
+          value: "spark"
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        livenessProbe:
+          tcpSocket:
+            port: 7077
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: 8080
+          initialDelaySeconds: 20
+          periodSeconds: 10
+
+---
+# Spark Worker Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spark-worker
+  namespace: air-quality
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: spark-worker
+  template:
+    metadata:
+      labels:
+        app: spark-worker
+    spec:
+      securityContext:
+        runAsUser: 0
+        fsGroup: 0
+      containers:
+      - name: spark-worker
+        image: apache/spark:3.3.1
+        command: ["/bin/bash", "-c"]
+        args:
+          - |
+            export SPARK_USER=spark
+            /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker \
+              --cores 2 \
+              --memory 2g \
+              spark://spark-master:7077
+        ports:
+        - containerPort: 8081
+          name: web-ui
+        env:
+        - name: SPARK_USER
+          value: "spark"
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "3Gi"
+            cpu: "2000m"
+        livenessProbe:
+          tcpSocket:
+            port: 8081
+          initialDelaySeconds: 30
+          periodSeconds: 10
+      initContainers:
+      - name: wait-for-spark-master
+        image: busybox:1.35
+        command:
+        - sh
+        - -c
+        - |
+          until nc -z spark-master 7077; do
+            echo "Waiting for Spark Master..."
+            sleep 1
+          done

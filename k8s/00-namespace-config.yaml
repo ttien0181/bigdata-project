@@ -1,0 +1,130 @@
+# Kubernetes ConfigMap & Secret cho Air Quality Project
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: air-quality
+  labels:
+    name: air-quality
+
+---
+# ConfigMap cho Hadoop
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hadoop-config
+  namespace: air-quality
+data:
+  CORE_CONF_fs_defaultFS: "hdfs://namenode:9000"
+  CORE_CONF_hadoop_http_staticuser_user: "root"
+  HDFS_CONF_dfs_replication: "1"
+
+---
+# Secret cho PostgreSQL
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-secret
+  namespace: air-quality
+type: Opaque
+stringData:
+  POSTGRES_USER: admin
+  POSTGRES_PASSWORD: password123
+  POSTGRES_DB: air_quality
+
+---
+# Secret cho API Key (để sau dùng OpenWeather thật)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: openweather-secret
+  namespace: air-quality
+type: Opaque
+stringData:
+  API_KEY: "YOUR_OPENWEATHER_API_KEY"
+
+---
+# PersistentVolume cho HDFS NameNode
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: namenode-pv
+  namespace: air-quality
+spec:
+  capacity:
+    storage: 20Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: standard
+  hostPath:
+    path: "/data/namenode"
+
+---
+# PersistentVolume cho HDFS DataNode
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: datanode-pv
+  namespace: air-quality
+spec:
+  capacity:
+    storage: 20Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: standard
+  hostPath:
+    path: "/data/datanode"
+
+---
+# PersistentVolume cho PostgreSQL
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: postgres-pv
+  namespace: air-quality
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: standard
+  hostPath:
+    path: "/data/postgres"
+
+---
+# PersistentVolume cho Zookeeper
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: zookeeper-pv
+  namespace: air-quality
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: standard
+  hostPath:
+    path: "/data/zookeeper"
+
+---
+# PersistentVolume cho Kafka
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: kafka-pv
+  namespace: air-quality
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: standard
+  hostPath:
+    path: "/data/kafka"

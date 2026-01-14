@@ -1,0 +1,150 @@
+# Kafka & Zookeeper Deployments
+
+---
+# Zookeeper StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: zookeeper
+  namespace: air-quality
+spec:
+  serviceName: zookeeper
+  replicas: 1
+  selector:
+    matchLabels:
+      app: zookeeper
+  template:
+    metadata:
+      labels:
+        app: zookeeper
+    spec:
+      securityContext:
+        fsGroup: 1000
+      initContainers:
+      - name: fix-permissions
+        image: busybox:1.35
+        command:
+        - sh
+        - -c
+        - |
+          chown -R 1000:1000 /var/lib/zookeeper
+        volumeMounts:
+        - name: zookeeper-data
+          mountPath: /var/lib/zookeeper/data
+        - name: zookeeper-logs
+          mountPath: /var/lib/zookeeper/log
+      containers:
+      - name: zookeeper
+        image: confluentinc/cp-zookeeper:7.4.0
+        ports:
+        - containerPort: 2181
+          name: client
+        env:
+        - name: ZOOKEEPER_CLIENT_PORT
+          value: "2181"
+        - name: ZOOKEEPER_SYNC_LIMIT
+          value: "5"
+        - name: ZOOKEEPER_INIT_LIMIT
+          value: "10"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        volumeMounts:
+        - name: zookeeper-data
+          mountPath: /var/lib/zookeeper/data
+        - name: zookeeper-logs
+          mountPath: /var/lib/zookeeper/log
+  volumeClaimTemplates:
+  - metadata:
+      name: zookeeper-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: standard
+      resources:
+        requests:
+          storage: 5Gi
+  - metadata:
+      name: zookeeper-logs
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: standard
+      resources:
+        requests:
+          storage: 5Gi
+
+---
+# Kafka StatefulSet - Simplified Version
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kafka
+  namespace: air-quality
+spec:
+  serviceName: kafka-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka
+  template:
+    metadata:
+      labels:
+        app: kafka
+    spec:
+      containers:
+      - name: kafka
+        image: confluentinc/cp-kafka:7.4.0
+        ports:
+        - containerPort: 29092
+          name: plaintext
+        env:
+        - name: KAFKA_ZOOKEEPER_CONNECT
+          value: "zookeeper:2181"
+        - name: KAFKA_ADVERTISED_LISTENERS
+          value: "PLAINTEXT://kafka:29092"
+        - name: KAFKA_BROKER_ID
+          value: "1"
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        volumeMounts:
+        - name: kafka-data
+          mountPath: /var/lib/kafka/data
+        readinessProbe:
+          tcpSocket:
+            port: 29092
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        livenessProbe:
+          tcpSocket:
+            port: 29092
+          initialDelaySeconds: 60
+          periodSeconds: 10
+      initContainers:
+      - name: wait-for-zookeeper
+        image: busybox:1.35
+        command:
+        - sh
+        - -c
+        - |
+          until nc -z zookeeper 2181; do
+            echo "Waiting for Zookeeper..."
+            sleep 2
+          done
+          sleep 5
+  volumeClaimTemplates:
+  - metadata:
+      name: kafka-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: standard
+      resources:
+        requests:
+          storage: 10Gi
