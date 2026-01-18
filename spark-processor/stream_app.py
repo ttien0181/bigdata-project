@@ -5,7 +5,7 @@ from pyspark.sql.types import StructType, StructField, StringType, DoubleType, L
 
 
 spark = SparkSession.builder \
-    .appName("OpenWeatherProcessor") \
+    .appName("WeatherDataProcessor") \
     .config("spark.master", "spark://spark-master:7077") \
     .config("spark.executor.memory", "1g") \
     .config("spark.executor.cores", "1") \
@@ -17,25 +17,16 @@ spark = SparkSession.builder \
 
 spark.sparkContext.setLogLevel("WARN")
 
-component_schema = StructType([
-    StructField("co", DoubleType()),
-    StructField("no", DoubleType()),
-    StructField("no2", DoubleType()),
-    StructField("o3", DoubleType()),
-    StructField("so2", DoubleType()),
-    StructField("pm2_5", DoubleType()),
-    StructField("pm10", DoubleType()),
-    StructField("nh3", DoubleType())
-])
-
 main_info_schema = StructType([
-    StructField("aqi", IntegerType())
+    StructField("temp", DoubleType()),
+    StructField("feels_like", DoubleType()),
+    StructField("humidity", IntegerType()),
+    StructField("pressure", IntegerType())
 ])
 
 list_item_schema = StructType([
     StructField("dt", LongType()),
-    StructField("main", main_info_schema),
-    StructField("components", component_schema)
+    StructField("main", main_info_schema)
 ])
 
 api_schema = StructType([
@@ -46,7 +37,7 @@ api_schema = StructType([
 kafka_df = spark.readStream \
     .format("kafka") \
     .option("kafka.bootstrap.servers", "kafka:29092") \
-    .option("subscribe", "air_quality_data") \
+    .option("subscribe", "weather_data") \
     .option("startingOffsets", "latest") \
     .option("failOnDataLoss", "false")\
     .load()
@@ -65,28 +56,27 @@ final_df = exploded_df.select(
     current_timestamp().alias("processed_time"),
     col("longitude"),
     col("latitude"),
-    col("measure.main.aqi").alias("aqi"),
-    col("measure.components.pm2_5").alias("pm2_5"),
-    col("measure.components.pm10").alias("pm10"),
-    col("measure.components.co").alias("co"),
-    col("measure.components.no2").alias("no2")
+    col("measure.main.temp").alias("temperature"),
+    col("measure.main.feels_like").alias("feels_like"),
+    col("measure.main.humidity").alias("humidity"),
+    col("measure.main.pressure").alias("pressure")
 )
 
 # query = final_df.writeStream \
 #     .outputMode("append") \
 #     .format("parquet") \
-#     .option("path", "hdfs://namenode:9000/data/air_quality_v2/") \
-#     .option("checkpointLocation", "hdfs://namenode:9000/checkpoint/air_quality_v2/") \
+#     .option("path", "hdfs://namenode:9000/data/weather_data/") \
+#     .option("checkpointLocation", "hdfs://namenode:9000/checkpoint/weather_data/") \
 #     .trigger(processingTime='1 minute') \
 #     .start()
-    #  .option("path", "hdfs://namenode-service:9000/data/air_quality_v2/") \
-    # .option("checkpointLocation", "hdfs://namenode-service:9000/checkpoint/air_quality_v2/") \
+    #  .option("path", "hdfs://namenode-service:9000/data/weather_data/") \
+    # .option("checkpointLocation", "hdfs://namenode-service:9000/checkpoint/weather_data/") \
 db_properties = {
     "user": "admin",
     "password": "password123",
     "driver": "org.postgresql.Driver"
 }
-jdbc_url = "jdbc:postgresql://postgres:5432/air_quality" # 'postgres' là tên service trong docker
+jdbc_url = "jdbc:postgresql://postgres:5432/weather_data" # 'postgres' là tên service trong docker
 
 # def write_to_postgres(batch_df, batch_id):
 
@@ -164,33 +154,29 @@ def write_to_postgres_and_parquet(batch_df, batch_id):
         .drop("timestamp_unix")
     )
 
-    # write parquet
+    # write parquet to STREAM layer
     enriched.write.parquet(
-        "hdfs://namenode:9000/data/air_quality_v2/",
+        "hdfs://namenode:9000/data/weather_data/stream/",
         mode="append"
     )
 
-    # write postgres
+    # write postgres (serving layer - speed/real-time data)
     enriched.write.jdbc(
         url=jdbc_url,
-        table="public.air_quality_final",
+        table="public.weather_final",
         mode="append",
         properties=db_properties
     )
 
 
-# Áp dụng cho Stream
-# query = final_df.writeStream \
-#     .foreachBatch(write_to_postgres) \
-#     .start()
 
 
 
 query = final_df.writeStream \
     .outputMode("append") \
     .foreachBatch(write_to_postgres_and_parquet) \
-    .option("checkpointLocation", "hdfs://namenode:9000/checkpoint/air_quality_v2/") \
+    .option("checkpointLocation", "hdfs://namenode:9000/checkpoint/weather_data/stream/") \
     .start()
 
-print(">>> Đang xử lý dữ liệu từ OpenWeatherMap API giả lập...")
+print(">>> Đang xử lý dữ liệu nhiệt độ và độ ẩm từ OpenWeatherMap API giả lập...")
 query.awaitTermination()

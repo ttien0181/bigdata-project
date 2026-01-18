@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
       - name: producer
-        image: air-producer:latest
+        image: producer:v3
         imagePullPolicy: Never  # Sử dụng image từ local Minikube
         env:
         - name: KAFKA_BOOTSTRAP_SERVERS
@@ -65,7 +65,7 @@ spec:
       hostname: spark-processor-driver
       containers:
       - name: spark-processor
-        image: spark-processor:v5
+        image: spark-processor:v7
         imagePullPolicy: Never
         env:
         - name: SPARK_MASTER_URL
@@ -82,11 +82,11 @@ spec:
           value: "spark-processor-driver.spark-processor.air-quality.svc.cluster.local"
         resources:
           requests:
-            memory: "2Gi"
-            cpu: "1000m"
+            memory: "512Mi"
+            cpu: "500m"
           limits:
-            memory: "4Gi"
-            cpu: "2000m"
+            memory: "1Gi"
+            cpu: "1000m"
       restartPolicy: Always
       initContainers:
       - name: wait-for-dependencies

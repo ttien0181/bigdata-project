@@ -51,6 +51,8 @@ kind: PersistentVolume
 metadata:
   name: namenode-pv
   namespace: air-quality
+  labels:
+    type: namenode
 spec:
   capacity:
     storage: 20Gi
@@ -68,6 +70,8 @@ kind: PersistentVolume
 metadata:
   name: datanode-pv
   namespace: air-quality
+  labels:
+    type: datanode
 spec:
   capacity:
     storage: 20Gi
@@ -85,6 +89,8 @@ kind: PersistentVolume
 metadata:
   name: postgres-pv
   namespace: air-quality
+  labels:
+    type: postgres
 spec:
   capacity:
     storage: 10Gi
@@ -102,6 +108,8 @@ kind: PersistentVolume
 metadata:
   name: zookeeper-pv
   namespace: air-quality
+  labels:
+    type: zookeeper
 spec:
   capacity:
     storage: 5Gi
@@ -119,9 +127,11 @@ kind: PersistentVolume
 metadata:
   name: kafka-pv
   namespace: air-quality
+  labels:
+    type: kafka
 spec:
   capacity:
-    storage: 10Gi
+    storage: 8Gi
   accessModes:
     - ReadWriteOnce
   persistentVolumeReclaimPolicy: Retain

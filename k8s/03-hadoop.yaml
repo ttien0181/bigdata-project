@@ -50,6 +50,9 @@ spec:
     spec:
       accessModes: [ "ReadWriteOnce" ]
       storageClassName: standard
+      selector:
+        matchLabels:
+          type: namenode
       resources:
         requests:
           storage: 20Gi
@@ -113,6 +116,9 @@ spec:
     spec:
       accessModes: [ "ReadWriteOnce" ]
       storageClassName: standard
+      selector:
+        matchLabels:
+          type: datanode
       resources:
         requests:
           storage: 20Gi

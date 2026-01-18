@@ -13,9 +13,7 @@ spec:
     - broker
     - controller
   storage:
-    type: persistent-claim
-    size: 10Gi
-    deleteClaim: false
+    type: ephemeral  # Using ephemeral storage for Minikube compatibility
   resources:
     requests:
       memory: "1Gi"

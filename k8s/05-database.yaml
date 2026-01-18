@@ -24,6 +24,9 @@ spec:
         ports:
         - containerPort: 5432
           name: postgres
+        env:
+        - name: TZ
+          value: "UTC"
         envFrom:
         - secretRef:
             name: postgres-secret
@@ -62,6 +65,9 @@ spec:
     spec:
       accessModes: [ "ReadWriteOnce" ]
       storageClassName: standard
+      selector:
+        matchLabels:
+          type: postgres
       resources:
         requests:
           storage: 10Gi

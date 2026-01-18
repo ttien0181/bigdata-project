@@ -3,4 +3,4 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 COPY sensor_sim.py .
-CMD ["python", "sensor_sim.py"]
+CMD ["python", "-u", "sensor_sim.py"]
